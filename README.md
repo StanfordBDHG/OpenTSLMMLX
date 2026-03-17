@@ -1,6 +1,6 @@
-# MLX-iOS: OpenTSLM on Apple Silicon
+# OpenTSLM SP — MLX
 
-MLX port of [OpenTSLM](https://github.com/StanfordBDHG/OpenTSLM)'s SP (Soft Prompt) variant for on-device iOS inference.
+MLX port of [OpenTSLM](https://github.com/StanfordBDHG/OpenTSLM)'s SP (Soft Prompt) variant for inference on Apple Silicon.
 
 ## Project Structure
 
@@ -8,7 +8,7 @@ MLX port of [OpenTSLM](https://github.com/StanfordBDHG/OpenTSLM)'s SP (Soft Prom
 src/                  # Python MLX implementation
   ts_encoder.py       # TransformerCNNEncoder
   ts_projector.py     # MLPProjector
-  opentslm_sp.py      # End-to-end model
+  opentslm_sp.py      # End-to-end model (includes interleave logic)
   sleep_dataset.py    # Sleep-EDF dataset loader (auto-downloads data)
 checkpoints/          # Trained PyTorch checkpoints
 models/               # LLM base weights
@@ -58,4 +58,7 @@ python inference.py
 
 # Pick a specific sample
 python inference.py --sample-idx 5
+
+# Control generation length
+python inference.py --max-new-tokens 500
 ```

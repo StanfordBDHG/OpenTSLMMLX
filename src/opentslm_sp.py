@@ -4,10 +4,8 @@ import re
 
 import numpy as np
 import mlx.core as mx
-import mlx.utils
 from mlx_lm import load
 from mlx_lm.generate import generate_step
-from mlx_lm.tuner.lora import LoRALinear
 from mlx_lm.tuner.utils import linear_to_lora_layers
 
 from ts_encoder import TransformerCNNEncoder
