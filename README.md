@@ -42,7 +42,7 @@ Download a trained checkpoint and place it in `checkpoints/`:
 
 | Checkpoint            | Task                             | Source                                                      |
 | --------------------- | -------------------------------- | ----------------------------------------------------------- |
-| `model_checkpoint.pt` | EEG / sleep stage classification | [HuggingFace](https://huggingface.co/StanfordBDHG/OpenTSLM) |
+| `model_checkpoint.pt` | EEG / sleep stage classification | [HuggingFace](https://huggingface.co/OpenTSLM) |
 
 Each checkpoint contains trained encoder, projector, and LoRA adapter weights.
 
