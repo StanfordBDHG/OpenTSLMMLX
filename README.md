@@ -29,7 +29,7 @@ pip install -r requirements.txt
 Download [Llama-3.2-1B](https://huggingface.co/meta-llama/Llama-3.2-1B) in **bf16** (full precision) and place it in `models/`:
 
 ```bash
-huggingface-cli download meta-llama/Llama-3.2-1B --local-dir models/Llama-3.2-1B-bf16
+hf download meta-llama/Llama-3.2-1B --local-dir models/Llama-3.2-1B-bf16
 ```
 
 The bf16 model is required because the LoRA adapters in the checkpoints were trained against
