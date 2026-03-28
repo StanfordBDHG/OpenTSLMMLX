@@ -1,0 +1,7 @@
+mlx
+mlx-lm
+torch
+peft
+numpy
+pandas
+scikit-learn

@@ -1,0 +1,7 @@
+checkpoints/
+mlx-lm/
+models/
+data/
+__pycache__/
+.claude/
+.build/
