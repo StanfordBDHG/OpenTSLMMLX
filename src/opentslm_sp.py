@@ -92,7 +92,7 @@ class OpenTSLMSP:
             raise ValueError(
                 "Checkpoint is missing encoder/projector weights. "
                 "Expected pre-converted .safetensors format."
-            ) 
+            )
 
         self.encoder.load_weights(list(encoder_weights.items()))
         self.projector.load_weights(list(projector_weights.items()))
