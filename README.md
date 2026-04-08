@@ -10,7 +10,7 @@ src/                  # Python MLX implementation
   ts_projector.py     # MLPProjector
   opentslm_sp.py      # End-to-end model (includes interleave logic)
   sleep_dataset.py    # Sleep-EDF dataset loader (auto-downloads data)
-checkpoints/          # Trained PyTorch checkpoints
+checkpoints/          # Converted safetensors weights
 models/               # LLM base weights
 ```
 
@@ -38,13 +38,28 @@ be combined with these LoRA weights.
 
 ### 3. Download a checkpoint
 
-Download a trained checkpoint and place it in `checkpoints/`:
+Download a trained `.pt` checkpoint and place it in `checkpoints/`:
 
 | Checkpoint            | Task                             | Source                                                      |
 | --------------------- | -------------------------------- | ----------------------------------------------------------- |
 | `model_checkpoint.pt` | EEG / sleep stage classification | [HuggingFace](https://huggingface.co/OpenTSLM) |
 
-Each checkpoint contains trained encoder, projector, and LoRA adapter weights.
+Then run one-time conversion to safetensors:
+
+```bash
+# One-time conversion dependencies
+pip install torch peft safetensors
+
+python convert_checkpoint.py \
+  --input checkpoints/model_checkpoint.pt \
+  --output-prefix checkpoints/model_checkpoint
+```
+
+This writes:
+
+- `checkpoints/model_checkpoint.encoder.safetensors`
+- `checkpoints/model_checkpoint.projector.safetensors`
+- `checkpoints/model_checkpoint.lora.safetensors` (if LoRA exists)
 
 ## Running Inference
 

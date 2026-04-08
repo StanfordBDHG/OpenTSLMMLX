@@ -18,7 +18,7 @@ from sleep_dataset import SleepEDFDataset
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default="checkpoints/model_checkpoint.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/model_checkpoint")
     parser.add_argument("--model", default="models/Llama-3.2-1B-bf16")
     parser.add_argument("--sample-idx", type=int, default=0)
     parser.add_argument("--max-new-tokens", type=int, default=300)

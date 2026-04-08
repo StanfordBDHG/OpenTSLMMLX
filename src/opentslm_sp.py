@@ -7,8 +7,6 @@
 
 """MLX OpenTSLMSP: end-to-end time-series language model."""
 
-import re
-
 import numpy as np
 import mlx.core as mx
 from mlx_lm import load
@@ -36,30 +34,30 @@ class OpenTSLMSP:
         self.patch_size = 4
 
     def load_from_file(self, path: str):
-        """Load trained encoder/projector/LoRA weights from a PyTorch checkpoint.
+        """Load pre-converted encoder/projector/LoRA safetensors weights.
 
-        TODO: Remove torch dependency by pre-converting checkpoints to safetensors.
-          Write a conversion script that applies all weight transforms.
+        Args:
+            path: prefix path used for:
+              {path}.encoder.safetensors
+              {path}.projector.safetensors
+              {path}.lora.safetensors (optional)
         """
-        import torch
+        encoder_state = mx.load(f"{path}.encoder.safetensors")
+        projector_state = mx.load(f"{path}.projector.safetensors")
 
-        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-
-        if "encoder_state" not in checkpoint or "projector_state" not in checkpoint:
-            raise ValueError("Checkpoint is missing 'encoder_state' or 'projector_state'")
-
-        max_patches = checkpoint["encoder_state"]["pos_embed"].shape[1]
+        max_patches = encoder_state["pos_embed"].shape[1]
         self.encoder = TransformerCNNEncoder(max_patches=max_patches)
-        encoder_weights = _convert_encoder_weights(checkpoint["encoder_state"])
-        self.encoder.load_weights(list(encoder_weights.items()))
+        self.encoder.load_weights(list(encoder_state.items()))
 
-        projector_weights = _convert_projector_weights(checkpoint["projector_state"])
-        self.projector.load_weights(list(projector_weights.items()))
+        self.projector.load_weights(list(projector_state.items()))
 
-        if checkpoint.get("lora_state"):
-            self._apply_lora(checkpoint["lora_state"])
+        try:
+            lora_state = mx.load(f"{path}.lora.safetensors")
+            self._apply_lora(lora_state)
+        except Exception:
+            pass
 
-        print(f"  Loaded model from epoch {checkpoint.get('epoch', '?')}")
+        print(f"  Loaded model from prefix: {path}")
 
     def _apply_lora(
         self,
@@ -78,18 +76,7 @@ class OpenTSLMSP:
             {"rank": lora_r, "scale": scale, "dropout": 0.0},
         )
 
-        # TODO: Remove this conversion once checkpoints are pre-converted to safetensors.
-        lora_weights = []
-        for key, tensor in lora_state.items():
-            m = re.match(r"base_model\.model\.(.+)\.(lora_[AB])\.default\.weight", key)
-            if not m:
-                continue
-
-            # PEFT lora_A [r, in] → MLX lora_a [in, r]
-            # PEFT lora_B [out, r] → MLX lora_b [r, out]
-            mlx_key = f"{m.group(1)}.{m.group(2).lower()}"
-            lora_weights.append((mlx_key, mx.array(tensor.float().numpy()).T))
-
+        lora_weights = list(lora_state.items())
         self.llm.load_weights(lora_weights, strict=False)
         print(f"  Applied LoRA: {len(lora_weights) // 2} modules, rank={lora_r}, alpha={lora_alpha}")
 
@@ -249,72 +236,3 @@ class OpenTSLMSP:
                 break
 
         return self.tokenizer.decode(tokens)
-
-
-def _convert_encoder_weights(state_dict: dict) -> dict:
-    """Convert PyTorch TransformerCNNEncoder state_dict to MLX format.
-
-    TODO: Remove once checkpoints are pre-converted to safetensors.
-    """
-    weights = {}
-
-    # Conv1d: PyTorch [C_out, C_in, K] -> MLX [C_out, K, C_in]
-    weights["patch_embed.weight"] = mx.array(
-        state_dict["patch_embed.weight"].numpy().transpose(0, 2, 1)
-    )
-    weights["pos_embed"] = mx.array(state_dict["pos_embed"].numpy())
-    weights["input_norm.weight"] = mx.array(state_dict["input_norm.weight"].numpy())
-    weights["input_norm.bias"] = mx.array(state_dict["input_norm.bias"].numpy())
-
-    num_layers = sum(
-        1 for k in state_dict if k.startswith("encoder.layers.") and k.endswith(".norm1.weight")
-    )
-    for i in range(num_layers):
-        pt_pfx = f"encoder.layers.{i}"
-        mx_pfx = f"layers.{i}"
-
-        # Split combined QKV -> separate Q, K, V
-        in_proj_w = state_dict[f"{pt_pfx}.self_attn.in_proj_weight"].numpy()
-        in_proj_b = state_dict[f"{pt_pfx}.self_attn.in_proj_bias"].numpy()
-        d = in_proj_w.shape[1]
-
-        weights[f"{mx_pfx}.self_attn.query_proj.weight"] = mx.array(in_proj_w[:d])
-        weights[f"{mx_pfx}.self_attn.key_proj.weight"] = mx.array(in_proj_w[d : 2 * d])
-        weights[f"{mx_pfx}.self_attn.value_proj.weight"] = mx.array(in_proj_w[2 * d :])
-        weights[f"{mx_pfx}.self_attn.query_proj.bias"] = mx.array(in_proj_b[:d])
-        weights[f"{mx_pfx}.self_attn.key_proj.bias"] = mx.array(in_proj_b[d : 2 * d])
-        weights[f"{mx_pfx}.self_attn.value_proj.bias"] = mx.array(in_proj_b[2 * d :])
-
-        weights[f"{mx_pfx}.self_attn.out_proj.weight"] = mx.array(
-            state_dict[f"{pt_pfx}.self_attn.out_proj.weight"].numpy()
-        )
-        weights[f"{mx_pfx}.self_attn.out_proj.bias"] = mx.array(
-            state_dict[f"{pt_pfx}.self_attn.out_proj.bias"].numpy()
-        )
-
-        for name in ["linear1", "linear2"]:
-            for param in ["weight", "bias"]:
-                weights[f"{mx_pfx}.{name}.{param}"] = mx.array(
-                    state_dict[f"{pt_pfx}.{name}.{param}"].numpy()
-                )
-
-        for name in ["norm1", "norm2"]:
-            for param in ["weight", "bias"]:
-                weights[f"{mx_pfx}.{name}.{param}"] = mx.array(
-                    state_dict[f"{pt_pfx}.{name}.{param}"].numpy()
-                )
-
-    return weights
-
-
-def _convert_projector_weights(state_dict: dict) -> dict:
-    """Convert PyTorch MLPProjector state_dict to MLX format.
-
-    TODO: Remove once checkpoints are pre-converted to safetensors.
-    """
-    return {
-        "norm.weight": mx.array(state_dict["projector.0.weight"].numpy()),
-        "norm.bias": mx.array(state_dict["projector.0.bias"].numpy()),
-        "linear.weight": mx.array(state_dict["projector.1.weight"].numpy()),
-        "linear.bias": mx.array(state_dict["projector.1.bias"].numpy()),
-    }
